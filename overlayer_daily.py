@@ -14,14 +14,24 @@ from web3 import Web3
 from eth_abi import encode, decode
 from eth_account.messages import encode_defunct
 
-# === CONFIG ===
-PK = os.environ.get("AGENT_WALLET_PRIVATE_KEY", "92303bc9c2d311b16428c2d77207f14d2566f60e42522d0653eb85de1fd54e0f")
-AGENT = "0x308013F0b23E461792e1c6c67509bEF6E23b84E5"
-RPC = "https://sepolia.drpc.org"
+# === CONFIG (from environment) ===
+PK = os.environ.get("WALLET_PRIVATE_KEY")
+AGENT = os.environ.get("WALLET_ADDRESS")
+RPC = os.environ.get("RPC_URL", "https://sepolia.drpc.org")
 BASE_URL = "https://api.overlayer.fi"
-GAS_PRICE_GWEI = 3
+GAS_PRICE_GWEI = int(os.environ.get("GAS_PRICE_GWEI", "3"))
 
-# Contract addresses
+# Validate required env vars
+if not PK:
+    print("ERROR: WALLET_PRIVATE_KEY not set. Copy .env.example to .env and fill in your wallet.")
+    sys.exit(1)
+if not AGENT:
+    # Derive address from private key
+    w3_tmp = Web3()
+    AGENT = w3_tmp.eth.account.from_key(PK).address
+    print(f"Derived wallet address: {AGENT}")
+
+# Contract addresses (Sepolia)
 C_PLUS = "0xE815718D44694ec4637CB775C468d87f6e15B538"
 T_PLUS = "0xe20534a32f9162488a90026F268a74fBE28d272D"
 USDC = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"
@@ -143,8 +153,8 @@ def batch_send(w3, to, data_list, gas=200000):
 def mint_cplus(w3, count=15, amount_usdc=1):
     """Mint C+ by depositing USDC."""
     mint_usdc = amount_usdc * 10**6
-    mint_cplus = amount_usdc * 10**18
-    order = (AGENT, AGENT, USDC, mint_usdc, mint_cplus)
+    mint_cplus_amt = amount_usdc * 10**18
+    order = (AGENT, AGENT, USDC, mint_usdc, mint_cplus_amt)
     calldata = "0x" + (MINT_SEL + encode(["(address,address,address,uint256,uint256)"], [order])).hex()
     data_list = [calldata] * count
     return batch_send(w3, C_PLUS, data_list)
@@ -153,8 +163,8 @@ def mint_cplus(w3, count=15, amount_usdc=1):
 def mint_tplus(w3, count=15, amount_usdt=1):
     """Mint T+ by depositing USDT."""
     mint_usdt = amount_usdt * 10**6
-    mint_tplus = amount_usdt * 10**18
-    order = (AGENT, AGENT, USDT, mint_usdt, mint_tplus)
+    mint_tplus_amt = amount_usdt * 10**18
+    order = (AGENT, AGENT, USDT, mint_usdt, mint_tplus_amt)
     calldata = "0x" + (MINT_SEL + encode(["(address,address,address,uint256,uint256)"], [order])).hex()
     data_list = [calldata] * count
     return batch_send(w3, T_PLUS, data_list)
